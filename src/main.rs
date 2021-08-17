@@ -25,6 +25,9 @@ const SCOPES: [&str; 14] = [
     "user-read-recently-played",
 ];
 
+// TODO: Update device id to be dynamic based on system
+const DEV_ID: &str = "d39487ce81857d5912cdb4afc898d31fc8bf29ad";
+
 #[tokio::main]
 async fn main() {
     let matches = App::new("Spot")
@@ -58,24 +61,28 @@ async fn main() {
         )
         .get_matches();
 
-    // let mut oauth = SpotifyOAuth::default().scope(&SCOPES.join(" ")).build();
-
     match matches.subcommand() {
-        // Double parens?
+        // TODO: Learn Double parens?
+        // TODO: Update to play the arg passed in
         Some(("play", play_matches)) => {
-            // let devices = spotify.device().await;
-            // println!("{:?}", devices);
-            let device_id = String::from("d39487ce81857d5912cdb4afc898d31fc8bf29ad");
+            let client = oauth_client().await;
             let uris = vec!["spotify:track:4iV5W9uYEdYUVa79Axb7Rh".to_owned()];
-            match oauth_client()
-                .await
-                .start_playback(Some(device_id), None, Some(uris), for_position(0), None)
+            match client
+                .start_playback(
+                    Some(DEV_ID.to_string()),
+                    None,
+                    Some(uris),
+                    for_position(0),
+                    None,
+                )
                 .await
             {
                 Ok(_) => println!("start playback successful"),
                 Err(_) => eprintln!("start playback failed"),
             }
         }
+
+        // TODO: Parse this and print as a table of the top 10
         Some(("find", find_matches)) => {
             let query = find_matches.value_of("input").unwrap();
             println!("finding: {}", query);
@@ -86,48 +93,56 @@ async fn main() {
                 .unwrap();
             println!("search result:{:?}", result);
         }
+        // TODO: update to pretty print
         Some(("show", show_matches)) => {
             println!("showing playback");
             let context = oauth_client().await.current_playing(None).await.unwrap();
             println!("{:?}", context);
         }
         Some(("pause", pause_matches)) => {
-            // let devices = spotify.device().await;
-            // println!("{:?}", devices);
-            let device_id = String::from("d39487ce81857d5912cdb4afc898d31fc8bf29ad");
-            match oauth_client().await.pause_playback(Some(device_id)).await {
+            match oauth_client()
+                .await
+                .pause_playback(Some(DEV_ID.to_string()))
+                .await
+            {
                 Ok(_) => println!("playback paused"),
                 Err(_) => eprintln!("pause playback failed"),
             }
         }
         Some(("resume", resume_matches)) => {
-            let playing = oauth_client()
-                .await
-                .current_user_playing_track()
-                .await
-                .unwrap();
-            println!("playing {:?}", playing);
-            // let device_id = String::from("d39487ce81857d5912cdb4afc898d31fc8bf29ad");
-            // match spotify
-            //     .start_playback(Some(device_id), None, None, None, playing.progress_ms)
-            //     .await
-            // {
-            //     Ok(_) => println!("start playback successful"),
-            //     Err(_) => eprintln!("start playback failed"),
-            // }
+            let client = oauth_client().await;
+            let playing = client.current_user_playing_track().await.unwrap();
+            if let Some(playing) = playing {
+                if !playing.is_playing {
+                    match client
+                        .start_playback(
+                            Some(DEV_ID.to_string()),
+                            None,
+                            None,
+                            None,
+                            playing.progress_ms,
+                        )
+                        .await
+                    {
+                        Ok(_) => println!("Resuming playback"),
+                        Err(_) => eprintln!("Resuming playback failed"),
+                    }
+                } else {
+                    println!("Already playing")
+                }
+            }
         }
         None => println!("No command given"),
         _ => println!("Unsupported command, please check help text"),
     }
 }
 
-/// get token automatically with local webserver
+// oauth_client returns an authenticated Spotify Client with all scopes
 pub async fn oauth_client() -> Spotify {
     let mut oauth = SpotifyOAuth::default().scope(&SCOPES.join(" ")).build();
     let spotify;
     match get_token(&mut oauth).await {
         Some(token_info) => {
-            println!("Tokens!!!");
             let client_credential = SpotifyClientCredentials::default()
                 .token_info(token_info)
                 .build();
@@ -142,3 +157,16 @@ pub async fn oauth_client() -> Spotify {
     };
     spotify
 }
+
+// get_device returns the first device available for the client
+// pub async fn get_device(client: Spotify) -> String {
+//     let devices = client.device().await.unwrap();
+//     let device = match devices.to_owned() {
+//         DevicePayload => {
+//             let id = &devices.devices[0].id;
+//             String::from(id)
+//         }
+//         Error => String::from(""),
+//     };
+//     device
+// }
