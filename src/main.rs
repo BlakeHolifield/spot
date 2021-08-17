@@ -3,6 +3,7 @@ use clap::{App, Arg};
 use rspotify::{
     client::Spotify,
     model::offset::for_position,
+    model::search::SearchPlaylists,
     oauth2::{SpotifyClientCredentials, SpotifyOAuth},
     senum::Country,
     util::get_token,
@@ -63,10 +64,23 @@ async fn main() {
 
     match matches.subcommand() {
         // TODO: Learn Double parens?
-        // TODO: Update to play the arg passed in
         Some(("play", play_matches)) => {
+            let query = play_matches.value_of("input").unwrap();
             let client = oauth_client().await;
-            let uris = vec!["spotify:track:4iV5W9uYEdYUVa79Axb7Rh".to_owned()];
+            let mut uris = vec![];
+            let playlists = client
+                .search_playlist(query, 10, 0, Some(Country::UnitedStates))
+                .await
+                .unwrap();
+            let playlists = match playlists {
+                // I think we have to queue these up
+                SearchPlaylists { playlists } => {
+                    for p in playlists.items.iter() {
+                        uris.push(p.uri.to_owned());
+                        break;
+                    }
+                }
+            };
             match client
                 .start_playback(
                     Some(DEV_ID.to_string()),
@@ -78,7 +92,7 @@ async fn main() {
                 .await
             {
                 Ok(_) => println!("start playback successful"),
-                Err(_) => eprintln!("start playback failed"),
+                Err(e) => eprintln!("start playback failed as {}", e),
             }
         }
 
@@ -86,12 +100,18 @@ async fn main() {
         Some(("find", find_matches)) => {
             let query = find_matches.value_of("input").unwrap();
             println!("finding: {}", query);
-            let result = oauth_client()
-                .await
+            let client = oauth_client().await;
+            let playlists = client
                 .search_playlist(query, 10, 0, Some(Country::UnitedStates))
                 .await
                 .unwrap();
-            println!("search result:{:?}", result);
+            let playlists = match playlists {
+                SearchPlaylists { playlists } => {
+                    for p in playlists.items.iter() {
+                        println!("{} - {}", p.name, p.uri)
+                    }
+                }
+            };
         }
         // TODO: update to pretty print
         Some(("show", show_matches)) => {
