@@ -12,7 +12,7 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 - [x] Can connect to the spotify api
 
 **Interaction items:**
--  [ ] List playlists based on search
+-  [x] List playlists based on search
 -  [ ] Play a playlist based on search
 
 **Stretch**
