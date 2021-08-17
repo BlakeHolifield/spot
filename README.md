@@ -1,2 +1,21 @@
 # Spot
-A vibe driven CLI tool for Spotify
+A hackathon cli tool for Spotify, written in Rust.
+
+## Idea
+### Playlist Focused, Vibe Driven
+I don't want to spend time finding music to listen to. I want to use existing playlists with a specific vibe and just play them. 
+
+### Youtube Audio Streams?
+
+## MVP
+
+- [x] Can connect to the spotify api
+
+**Interaction items:**
+-  [ ] List playlists based on search
+-  [ ] Play a playlist based on search
+
+**Stretch**
+
+- [ ] Youtube audio streams
+- [ ] Video player of those audio streams
