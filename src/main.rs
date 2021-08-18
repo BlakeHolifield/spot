@@ -2,8 +2,11 @@ use clap::{App, Arg};
 
 use rspotify::{
     client::Spotify,
+    model::artist::SimplifiedArtist,
+    model::context::SimplifiedPlayingContext,
     model::offset::for_position,
     model::search::SearchPlaylists,
+    model::track::FullTrack,
     oauth2::{SpotifyClientCredentials, SpotifyOAuth},
     senum::Country,
     util::get_token,
@@ -67,31 +70,32 @@ async fn main() {
         Some(("play", play_matches)) => {
             let query = play_matches.value_of("input").unwrap();
             let client = oauth_client().await;
-            let mut uris = vec![];
             let playlists = client
                 .search_playlist(query, 10, 0, Some(Country::UnitedStates))
                 .await
                 .unwrap();
+            let context_uri;
             let playlists = match playlists {
-                // I think we have to queue these up
+                // Will be in a  random order
                 SearchPlaylists { playlists } => {
-                    for p in playlists.items.iter() {
-                        uris.push(p.uri.to_owned());
-                        break;
-                    }
+                    let first_item = playlists.items[0].to_owned();
+                    let user = first_item.owner.uri;
+                    let playlist = first_item.uri;
+                    context_uri = format!("{}", playlist);
+                    println!("Now playing: [{}]", first_item.name);
                 }
             };
             match client
                 .start_playback(
                     Some(DEV_ID.to_string()),
+                    Some(context_uri),
                     None,
-                    Some(uris),
                     for_position(0),
                     None,
                 )
                 .await
             {
-                Ok(_) => println!("start playback successful"),
+                Ok(_) => println!("Enjoy your vibe"),
                 Err(e) => eprintln!("start playback failed as {}", e),
             }
         }
@@ -99,12 +103,13 @@ async fn main() {
         // TODO: Parse this and print as a table of the top 10
         Some(("find", find_matches)) => {
             let query = find_matches.value_of("input").unwrap();
-            println!("finding: {}", query);
+            println!("Looking for {} vibes", query);
             let client = oauth_client().await;
             let playlists = client
                 .search_playlist(query, 10, 0, Some(Country::UnitedStates))
                 .await
                 .unwrap();
+            println!("I found these");
             let playlists = match playlists {
                 SearchPlaylists { playlists } => {
                     for p in playlists.items.iter() {
@@ -113,11 +118,34 @@ async fn main() {
                 }
             };
         }
-        // TODO: update to pretty print
+        // TODO: clean this up
         Some(("show", show_matches)) => {
-            println!("showing playback");
             let context = oauth_client().await.current_playing(None).await.unwrap();
-            println!("{:?}", context);
+            if let Some(c) = context {
+                if let Some(item) = c.item {
+                    match item {
+                        FullTrack { name, artists, .. } => {
+                            let mut output =
+                                format!("You're currently listening to [{} -- ", name.to_owned());
+                            let separator: &str = ", ";
+                            let len = artists.len();
+                            let mut ind = 0;
+                            for artist in artists {
+                                ind += 1;
+                                match artist {
+                                    SimplifiedArtist { name, .. } => {
+                                        output.push_str(&name.to_owned());
+                                        if ind <= len - 1 {
+                                            output.push_str(separator);
+                                        }
+                                    }
+                                };
+                            }
+                            println!("{}]", output.to_string());
+                        }
+                    };
+                }
+            }
         }
         Some(("pause", pause_matches)) => {
             match oauth_client()
@@ -144,7 +172,7 @@ async fn main() {
                         )
                         .await
                     {
-                        Ok(_) => println!("Resuming playback"),
+                        Ok(_) => println!("Back to the vibe"),
                         Err(_) => eprintln!("Resuming playback failed"),
                     }
                 } else {

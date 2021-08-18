@@ -13,7 +13,7 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 
 **Interaction items:**
 -  [x] List playlists based on search
--  [ ] Play a playlist based on search
+-  [x] Play a playlist based on search
 
 **Stretch**
 
