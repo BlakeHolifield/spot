@@ -3,7 +3,7 @@ use clap::{App, Arg};
 use rspotify::{
     client::Spotify,
     model::artist::SimplifiedArtist,
-    model::context::SimplifiedPlayingContext,
+    model::device::DevicePayload,
     model::offset::for_position,
     model::search::SearchPlaylists,
     model::track::FullTrack,
@@ -29,21 +29,46 @@ const SCOPES: [&str; 14] = [
     "user-read-recently-played",
 ];
 
-// TODO: Update device id to be dynamic based on system
-const DEV_ID: &str = "d39487ce81857d5912cdb4afc898d31fc8bf29ad";
-
 #[tokio::main]
 async fn main() {
     let matches = App::new("Spot")
         .version("0.0.1")
         .author("Blake Holifield <bholifie@redhat.com>")
         .about("A vibe driven playlist based cli for spotify")
-        .subcommand(App::new("show").about("what mood and playlist are playing"))
-        .subcommand(App::new("pause").about("pause the player"))
-        .subcommand(App::new("resume").about("resume the player"))
         .subcommand(
-            App::new("play")
-                .about("Play the first matching playlist")
+            App::new("show")
+                .about("displays the currently playing track")
+                .alias("current")
+                .after_help("spot <show || current>"),
+        )
+        .subcommand(
+            App::new("pause")
+                .about("pause the player")
+                .alias("s")
+                .after_help("spot <pause || s>"),
+        )
+        .subcommand(
+            App::new("resume")
+                .about("resume the player")
+                .alias("r")
+                .after_help("spot <resume || r>"),
+        )
+        .subcommand(
+            App::new("next")
+                .about("skip to next song")
+                .alias("n")
+                .after_help("spot next || f"),
+        )
+        .subcommand(
+            App::new("previous")
+                .about("go back to previous song")
+                .alias("b")
+                .after_help("spot <previous || b>"),
+        )
+        .subcommand(
+            App::new("gimmie")
+                .about("Play the first matching playlist of the vibe")
+                .after_help("spot gimmie <lofi>")
                 .arg(
                     Arg::new("input")
                         .value_name("mood")
@@ -54,10 +79,25 @@ async fn main() {
         )
         .subcommand(
             App::new("find")
-                .about("list out matching playlists for mood")
+                .about("list out matching playlists for mood and their URIs")
+                .after_help("spot find <lofi>")
                 .arg(
                     Arg::new("input")
                         .value_name("mood")
+                        .required(true)
+                        .takes_value(true)
+                        .index(1)
+                        .multiple_values(true),
+                ),
+        )
+        .subcommand(
+            App::new("play")
+                .about("Play a specified playlist from uri")
+                .after_help("spot play <URI>")
+                .long_about("Used in conjunciton with find. Search a vibe and copy the URI for the playlist. Then use spot play <URI>")
+                .arg(
+                    Arg::new("input")
+                        .value_name("playlist")
                         .required(true)
                         .takes_value(true)
                         .index(1),
@@ -66,20 +106,20 @@ async fn main() {
         .get_matches();
 
     match matches.subcommand() {
-        // TODO: Learn Double parens?
-        Some(("play", play_matches)) => {
-            let query = play_matches.value_of("input").unwrap();
+        // TODO: Learn Double parens
+        Some(("gimmie", vibe)) => {
             let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
+            let query = vibe.value_of("input").unwrap();
             let playlists = client
                 .search_playlist(query, 10, 0, Some(Country::UnitedStates))
                 .await
                 .unwrap();
             let context_uri;
-            let playlists = match playlists {
-                // Will be in a  random order
+            // TODO: dig deeper into how these work
+            let _playlists = match playlists {
                 SearchPlaylists { playlists } => {
                     let first_item = playlists.items[0].to_owned();
-                    let user = first_item.owner.uri;
                     let playlist = first_item.uri;
                     context_uri = format!("{}", playlist);
                     println!("Now playing: [{}]", first_item.name);
@@ -87,7 +127,7 @@ async fn main() {
             };
             match client
                 .start_playback(
-                    Some(DEV_ID.to_string()),
+                    Some(device_id),
                     Some(context_uri),
                     None,
                     for_position(0),
@@ -101,32 +141,59 @@ async fn main() {
         }
 
         // TODO: Parse this and print as a table of the top 10
-        Some(("find", find_matches)) => {
-            let query = find_matches.value_of("input").unwrap();
-            println!("Looking for {} vibes", query);
+        Some(("find", search)) => {
             let client = oauth_client().await;
+            let query = search
+                .values_of("input")
+                .unwrap()
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!("Looking for {} vibes:", &query);
             let playlists = client
-                .search_playlist(query, 10, 0, Some(Country::UnitedStates))
+                .search_playlist(&query, 10, 0, Some(Country::UnitedStates))
                 .await
                 .unwrap();
-            println!("I found these");
-            let playlists = match playlists {
+            let _playlists = match playlists {
                 SearchPlaylists { playlists } => {
+                    if playlists.items.len() < 1 {
+                        println!("I didn't find a single match for that.")
+                    }
                     for p in playlists.items.iter() {
-                        println!("{} - {}", p.name, p.uri)
+                        println!("{} => {}", p.name, p.uri)
                     }
                 }
             };
         }
-        // TODO: clean this up
-        Some(("show", show_matches)) => {
-            let context = oauth_client().await.current_playing(None).await.unwrap();
+        // TODO: Learn Double parens
+        Some(("play", uri)) => {
+            let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
+            let context_uri = uri.value_of("input").unwrap();
+            match client
+                .start_playback(
+                    Some(device_id),
+                    Some(context_uri.to_string()),
+                    None,
+                    for_position(0),
+                    None,
+                )
+                .await
+            {
+                Ok(_) => println!("Enjoy your vibe"),
+                Err(e) => eprintln!("start playback failed as {}", e),
+            }
+        }
+        Some(("show", _)) => {
+            let client = oauth_client().await;
+            let context = client.current_playing(None).await.unwrap();
+            // TODO: Dig deeper into how these work
             if let Some(c) = context {
                 if let Some(item) = c.item {
                     match item {
                         FullTrack { name, artists, .. } => {
                             let mut output =
                                 format!("You're currently listening to [{} -- ", name.to_owned());
+                            // TODO: refactor this
                             let separator: &str = ", ";
                             let len = artists.len();
                             let mut ind = 0;
@@ -147,37 +214,49 @@ async fn main() {
                 }
             }
         }
-        Some(("pause", pause_matches)) => {
-            match oauth_client()
-                .await
-                .pause_playback(Some(DEV_ID.to_string()))
-                .await
-            {
+        // TODO: Determine why these are tuples and cannot be strings
+        Some(("pause", _)) => {
+            let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
+            match client.pause_playback(Some(device_id)).await {
                 Ok(_) => println!("playback paused"),
                 Err(_) => eprintln!("pause playback failed"),
             }
         }
-        Some(("resume", resume_matches)) => {
+        Some(("resume", _)) => {
+            // TODO: refactor these out to functions?
             let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
             let playing = client.current_user_playing_track().await.unwrap();
             if let Some(playing) = playing {
                 if !playing.is_playing {
                     match client
-                        .start_playback(
-                            Some(DEV_ID.to_string()),
-                            None,
-                            None,
-                            None,
-                            playing.progress_ms,
-                        )
+                        .start_playback(Some(device_id), None, None, None, playing.progress_ms)
                         .await
                     {
                         Ok(_) => println!("Back to the vibe"),
-                        Err(_) => eprintln!("Resuming playback failed"),
+                        Err(e) => eprintln!("Resuming playback failed due to {}", e),
                     }
                 } else {
                     println!("Already playing")
                 }
+            }
+        }
+        // TODO: Determine why these are tuples and cannot be strings
+        Some(("next", _)) => {
+            let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
+            match client.next_track(Some(device_id)).await {
+                Ok(_) => println!("Jump forward to next track"),
+                Err(e) => eprintln!("track skip failed {}", e),
+            }
+        }
+        Some(("previous", _)) => {
+            let client = oauth_client().await;
+            let device_id = get_device(client.to_owned()).await;
+            match client.previous_track(Some(device_id)).await {
+                Ok(_) => println!("Jump forward to next track"),
+                Err(e) => eprintln!("track skip failed {}", e),
             }
         }
         None => println!("No command given"),
@@ -207,14 +286,13 @@ pub async fn oauth_client() -> Spotify {
 }
 
 // get_device returns the first device available for the client
-// pub async fn get_device(client: Spotify) -> String {
-//     let devices = client.device().await.unwrap();
-//     let device = match devices.to_owned() {
-//         DevicePayload => {
-//             let id = &devices.devices[0].id;
-//             String::from(id)
-//         }
-//         Error => String::from(""),
-//     };
-//     device
-// }
+pub async fn get_device(client: Spotify) -> String {
+    let devices = client.device().await.unwrap();
+    let device_id;
+    match devices {
+        DevicePayload { devices } => {
+            device_id = String::from(&devices[0].id);
+        }
+    };
+    device_id
+}
