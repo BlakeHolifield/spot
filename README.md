@@ -17,7 +17,7 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 
 **Stretch**
 
-- [ ] tui style highlighting for picking a playlist
+- [x] tui style highlighting for picking a playlist
 
 ## Installing
 
