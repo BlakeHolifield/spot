@@ -1,4 +1,5 @@
 use clap::ArgMatches;
+use interactor;
 use rspotify::{
     client::Spotify,
     model::artist::SimplifiedArtist,
@@ -10,6 +11,7 @@ use rspotify::{
     senum::Country,
     util::get_token,
 };
+use std::collections::HashMap;
 use std::{thread, time};
 
 const SCOPES: [&str; 14] = [
@@ -123,19 +125,54 @@ pub async fn find_vibe(search: &ArgMatches) {
         .unwrap()
         .collect::<Vec<_>>()
         .join(" ");
+    let mut vibes = HashMap::new();
+    let mut keys = vec![];
     println!("Looking for {} vibes:", &query);
     let playlists = client
         .search_playlist(&query, 10, 0, Some(Country::UnitedStates))
         .await
         .unwrap();
+    // TODO: Make this a map of names: uris
     let _playlists = match playlists {
         SearchPlaylists { playlists } => {
             if playlists.items.len() < 1 {
                 println!("I didn't find a single match for that.")
             }
             for p in playlists.items.iter() {
-                println!("{} => {}", p.name, p.uri)
+                vibes.insert(p.name.to_string(), p.uri.to_string());
+                keys.push(p.name.to_string());
             }
+        }
+    };
+
+    let chosen_ext = interactor::pick_from_list(
+        interactor::default_menu_cmd().as_mut(),
+        &keys[..],
+        "Selection: ",
+    )
+    .unwrap();
+
+    println!("Queueing up: {}", chosen_ext);
+
+    match vibes.get(&chosen_ext) {
+        Some(v) => {
+            let device_id = get_device(client.to_owned()).await;
+            match client
+                .start_playback(
+                    Some(device_id),
+                    Some(v.to_string()),
+                    None,
+                    for_position(0),
+                    None,
+                )
+                .await
+            {
+                Ok(_) => println!("Enjoy your vibe"),
+                Err(e) => eprintln!("start playback failed as {}", e),
+            }
+        }
+        None => {
+            println!("{}", String::from("can't play that"));
         }
     };
 }
@@ -194,31 +231,29 @@ pub async fn resume_playback() {
     }
 }
 
-pub async fn start_chosen_playlist(uri: &ArgMatches) {
-    let client = oauth_client().await;
-    let device_id = get_device(client.to_owned()).await;
-    let context_uri = uri.value_of("input").unwrap();
-    match client
-        .start_playback(
-            Some(device_id),
-            Some(context_uri.to_string()),
-            None,
-            for_position(0),
-            None,
-        )
-        .await
-    {
-        Ok(_) => println!("Enjoy your vibe"),
-        Err(e) => eprintln!("start playback failed as {}", e),
-    }
-}
-
 pub async fn pause_playback() {
     let client = oauth_client().await;
     let device_id = get_device(client.to_owned()).await;
     match client.pause_playback(Some(device_id)).await {
         Ok(_) => println!("playback paused"),
         Err(_) => eprintln!("pause playback failed"),
+    }
+}
+
+pub async fn shuffle_playback() {
+    let client = oauth_client().await;
+    let playing = client.current_playback(None).await.unwrap();
+    if let Some(p) = playing {
+        match client.shuffle(!p.shuffle_state, None).await {
+            Ok(_) => {
+                if p.shuffle_state {
+                    println!("Shuffle is on");
+                } else {
+                    println!("Shuffle is off");
+                }
+            }
+            Err(_) => eprintln!("shuffle toggle failed"),
+        }
     }
 }
 
