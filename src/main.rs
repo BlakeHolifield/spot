@@ -32,6 +32,11 @@ async fn main() {
                 .after_help("spot next || f"),
         )
         .subcommand(
+            App::new("shuffle")
+                .about("shuffle currently playlist")
+                .after_help("spot shuffle"),
+        )
+        .subcommand(
             App::new("previous")
                 .about("go back to previous song")
                 .alias("b")
@@ -62,19 +67,6 @@ async fn main() {
                         .multiple_values(true),
                 ),
         )
-        .subcommand(
-            App::new("playlist")
-                .about("Play a specified playlist from uri")
-                .after_help("spot play <URI>")
-                .long_about("Used in conjunciton with find. Search a vibe and copy the URI for the playlist. Then use spot play <URI>")
-                .arg(
-                    Arg::new("input")
-                        .value_name("playlist")
-                        .required(true)
-                        .takes_value(true)
-                        .index(1),
-                ),
-        )
         .get_matches();
 
     match matches.subcommand() {
@@ -82,18 +74,17 @@ async fn main() {
         Some(("play", vibe)) => {
             handlers::play_vibe(vibe).await;
         }
-
         // TODO: Parse this and print as a table of the top 10
         Some(("find", search)) => {
             handlers::find_vibe(search).await;
-        }
-        // TODO: Learn Double parens
-        Some(("playlist", uri)) => {
-            handlers::start_chosen_playlist(uri).await;
+            handlers::wait_for_client();
             handlers::show_playback().await;
         }
         Some(("show", _)) => {
             handlers::show_playback().await;
+        }
+        Some(("shuffle", _)) => {
+            handlers::shuffle_playback().await;
         }
         // TODO: Determine why these are tuples and cannot be strings
         Some(("pause", _)) => {
