@@ -29,6 +29,8 @@ const SCOPES: [&str; 14] = [
     "user-read-recently-played",
 ];
 
+const CLIENT_TICK: u64 = 200;
+
 // oauth_client returns an authenticated Spotify Client with all scopes
 pub async fn oauth_client() -> Spotify {
     let mut oauth = SpotifyOAuth::default().scope(&SCOPES.join(" ")).build();
@@ -84,9 +86,6 @@ pub async fn previous_track() {
 
 pub async fn show_playback() {
     let client = oauth_client().await;
-    // TODO: Find an async way to make this work. block_on was not sufficient
-    // I'm wondering if it's a client issue?
-    thread::sleep(time::Duration::from_millis(200));
     let context = client.current_playing(None).await.unwrap();
     // TODO: Dig deeper into how these work
     if let Some(c) = context {
@@ -175,7 +174,6 @@ pub async fn play_vibe(vibe: &ArgMatches) {
 }
 
 pub async fn resume_playback() {
-    // TODO: refactor these out to functions?
     let client = oauth_client().await;
     let device_id = get_device(client.to_owned()).await;
     let playing = client.current_user_playing_track().await.unwrap();
@@ -222,4 +220,9 @@ pub async fn pause_playback() {
         Ok(_) => println!("playback paused"),
         Err(_) => eprintln!("pause playback failed"),
     }
+}
+
+pub fn wait_for_client() {
+    // We have to wait for the client to update the track
+    thread::sleep(time::Duration::from_millis(CLIENT_TICK));
 }

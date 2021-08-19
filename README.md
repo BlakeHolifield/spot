@@ -17,5 +17,10 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 
 **Stretch**
 
-- [ ] Youtube audio streams
-- [ ] Video player of those audio streams
+- [ ] tui style highlighting for picking a playlist
+
+## Installing
+
+## Authenticating to Spotify
+
+## Running

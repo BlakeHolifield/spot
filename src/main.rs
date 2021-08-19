@@ -90,6 +90,7 @@ async fn main() {
         // TODO: Learn Double parens
         Some(("playlist", uri)) => {
             handlers::start_chosen_playlist(uri).await;
+            handlers::show_playback().await;
         }
         Some(("show", _)) => {
             handlers::show_playback().await;
@@ -105,10 +106,12 @@ async fn main() {
         // TODO: Determine why these are tuples and cannot be strings
         Some(("next", _)) => {
             handlers::next_track().await;
+            handlers::wait_for_client();
             handlers::show_playback().await;
         }
         Some(("previous", _)) => {
             handlers::previous_track().await;
+            handlers::wait_for_client();
             handlers::show_playback().await;
         }
         None => println!("No command given"),
