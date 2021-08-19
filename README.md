@@ -5,8 +5,6 @@ A hackathon cli tool for Spotify, written in Rust.
 ### Playlist Focused, Vibe Driven
 I don't want to spend time finding music to listen to. I want to use existing playlists with a specific vibe and just play them. 
 
-### Youtube Audio Streams?
-
 ## MVP
 
 - [x] Can connect to the spotify api

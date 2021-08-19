@@ -69,9 +69,9 @@ pub async fn get_device(client: Spotify) -> String {
 pub async fn next_track() {
     let client = oauth_client().await;
     let device_id = get_device(client.to_owned()).await;
-    match client.previous_track(Some(device_id)).await {
+    match client.next_track(Some(device_id)).await {
         Ok(_) => {
-            println!("Jump forward to next track");
+            println!("Jumping forward to next track");
         }
         Err(e) => eprintln!("track skip failed {}", e),
     }
@@ -81,7 +81,7 @@ pub async fn previous_track() {
     let client = oauth_client().await;
     let device_id = get_device(client.to_owned()).await;
     match client.previous_track(Some(device_id)).await {
-        Ok(_) => println!("Jump forward to next track"),
+        Ok(_) => println!("Jumping back to previous track"),
         Err(e) => eprintln!("track skip failed {}", e),
     }
 }
@@ -89,7 +89,6 @@ pub async fn previous_track() {
 pub async fn show_playback() {
     let client = oauth_client().await;
     let context = client.current_playing(None).await.unwrap();
-    // TODO: Dig deeper into how these work
     if let Some(c) = context {
         if let Some(item) = c.item {
             match item {
@@ -132,7 +131,6 @@ pub async fn find_vibe(search: &ArgMatches) {
         .search_playlist(&query, 10, 0, Some(Country::UnitedStates))
         .await
         .unwrap();
-    // TODO: Make this a map of names: uris
     let _playlists = match playlists {
         SearchPlaylists { playlists } => {
             if playlists.items.len() < 1 {
@@ -186,7 +184,6 @@ pub async fn play_vibe(vibe: &ArgMatches) {
         .await
         .unwrap();
     let context_uri;
-    // TODO: dig deeper into how these work
     let _playlists = match playlists {
         SearchPlaylists { playlists } => {
             let first_item = playlists.items[0].to_owned();
@@ -247,9 +244,9 @@ pub async fn shuffle_playback() {
         match client.shuffle(!p.shuffle_state, None).await {
             Ok(_) => {
                 if p.shuffle_state {
-                    println!("Shuffle is on");
-                } else {
                     println!("Shuffle is off");
+                } else {
+                    println!("Shuffle is on");
                 }
             }
             Err(_) => eprintln!("shuffle toggle failed"),
