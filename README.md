@@ -9,10 +9,10 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 
 ### Locally
 
-  git clone git@github.com:BlakeHolifield/spot.git
-  cd spot
-  cargo build --release
-  cp ./target/release/spot /usr/local/bin
+    git clone git@github.com:BlakeHolifield/spot.git
+    cd spot
+    cargo build --release
+    cp ./target/release/spot /usr/local/bin
 
 ## Authenticating to Spotify
 
@@ -39,19 +39,19 @@ I don't want to spend time finding music to listen to. I want to use existing pl
 
 ### Usage
 
-  spot -h
+`spot -h`
 
-**Play a vibe**
+#### Play a vibe
 
-  spot play lofi
+`spot play lofi`
 
-**Find a vibe**
+#### Find a vibe
 
 Spot uses `$MENU` to determine interaction with `/dev/tty`. By default, you will see a numbered list
 of selections. You can do `export MENU='fzf'` to use `fzf` instead. You can find a full list of 
 supported menus [at the interactor library repo](https://github.com/unrelentingtech/interactor#menu-program)
 
-  spot find 19th century villain
+  `spot find 19th century villain`
 
 and then select a playlist
 
